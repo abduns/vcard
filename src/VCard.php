@@ -617,6 +617,12 @@ class VCard
 
     public function build(): string
     {
+        if (!isset($this->properties['FN'])) {
+            throw new \InvalidArgumentException(
+                'A formatted name (FN) is required by RFC 6350. Call addName() or addFormattedName() before build().'
+            );
+        }
+
         $lines = [
             'BEGIN:VCARD',
             'VERSION:' . $this->version,
