@@ -3,7 +3,6 @@
 A framework-agnostic VCard 3.0/4.0 generator for PHP 8.2+.
 
 [![Tests](https://github.com/abduns/vcard/actions/workflows/tests.yml/badge.svg)](https://github.com/abduns/vcard/actions)
-[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/abduns/vcard/main/coverage.json)](https://github.com/abduns/vcard)
 [![Version](https://img.shields.io/packagist/v/abduns/vcard.svg)](https://packagist.org/packages/abduns/vcard)
 [![Downloads](https://img.shields.io/packagist/dt/abduns/vcard.svg)](https://packagist.org/packages/abduns/vcard)
 [![License](https://img.shields.io/packagist/l/abduns/vcard.svg)](LICENSE.md)
