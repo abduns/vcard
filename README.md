@@ -1,12 +1,23 @@
-# VCard Generator for PHP
+# vCard
 
-A lightweight, framework-agnostic VCard 3.0/4.0 generator for PHP 8.2+ with zero dependencies.
+Modern, framework-agnostic PHP library for generating vCard data with full RFC 6350 (vCard 4.0) support.
 
-Fully compliant with the [IANA vCard Elements registry](https://www.iana.org/assignments/vcard-elements/vcard-elements.xhtml), implementing all 50 standard properties across RFC 6350, RFC 6474, RFC 6715, RFC 8605, RFC 9554, and RFC 9555.
+[![Tests](https://github.com/abduns/vcard/actions/workflows/tests.yml/badge.svg)](https://github.com/abduns/vcard/actions)
+[![Latest Version](https://img.shields.io/github/v/tag/abduns/vcard?label=version)](https://github.com/abduns/vcard/tags)
+[![License](https://img.shields.io/github/license/abduns/vcard)](LICENSE.md)
 
-## Requirements
+## Features
 
-- PHP 8.2 or higher
+- RFC 6350 (vCard 4.0) compliant
+- Line folding at 75 octets (§3.2)
+- UTF-8 support
+- Generate `.vcf` files
+- All 50 IANA registered properties supported
+- `data:` URI encoding for embedded binary (photos, logos, sounds)
+- Custom and vendor-prefixed property support
+- Zero external dependencies
+
+---
 
 ## Installation
 
@@ -14,217 +25,316 @@ Fully compliant with the [IANA vCard Elements registry](https://www.iana.org/ass
 composer require abduns/vcard
 ```
 
+---
+
 ## Quick Start
 
 ```php
 use Dunn\VCard\VCard;
 
 $vcf = VCard::make()
-    ->addName('Doe', 'John', prefix: 'Mr.')
-    ->addEmail('john.doe@example.com', 'WORK')
-    ->addPhoneNumber('+1234567890', 'CELL')
+    ->addName('Doe', 'John')
+    ->addEmail('john@example.com', 'work')
+    ->addPhoneNumber('+62-812-3456-7890', 'cell')
     ->addUrl('https://johndoe.com')
     ->build();
 
-// Save to file
-file_put_contents('john_doe.vcf', $vcf);
+echo $vcf;
 ```
 
-> **Note:** `FN` (Formatted Name) is the **only required property** per RFC 6350. Calling `addName()` sets it automatically. If you skip both `addName()` and `addFormattedName()`, `build()` will throw an `InvalidArgumentException`.
+Generated output:
+
+```vcf
+BEGIN:VCARD
+VERSION:4.0
+N:Doe;John;;;
+FN:John Doe
+EMAIL;TYPE=work:john@example.com
+TEL;TYPE=cell:+62-812-3456-7890
+URL;TYPE=work:https://johndoe.com
+REV:20240101T000000Z
+END:VCARD
+```
 
 ---
 
-## All Available Methods
+## Standards
 
-### General Properties
-| Method | VCard Property | RFC |
-|--------|---------------|-----|
-| `addSource(string $uri)` | `SOURCE` | RFC 6350 §6.1.3 |
-| `addKind(string $kind)` | `KIND` | RFC 6350 §6.1.4 |
-| `addXml(string $xml)` | `XML` | RFC 6350 §6.1.5 |
+Designed around official Internet standards and IANA registries.
 
-### Identification Properties
-| Method | VCard Property | RFC |
-|--------|---------------|-----|
-| `addFormattedName(string $name)` | `FN` ⚠️ required | RFC 6350 §6.2.1 |
-| `addName(string $last, string $first, ...)` | `N` | RFC 6350 §6.2.2 |
-| `addNickname(string ...$names)` | `NICKNAME` | RFC 6350 §6.2.3 |
-| `addPhoto(string $urlOrBase64, string $mediaType)` | `PHOTO` | RFC 6350 §6.2.4 |
-| `addBirthday(string $date)` | `BDAY` | RFC 6350 §6.2.5 |
-| `addAnniversary(string $date)` | `ANNIVERSARY` | RFC 6350 §6.2.6 |
-| `addGender(string $sex, string $identity)` | `GENDER` | RFC 6350 §6.2.7 |
-| `addGramGender(string $gramGender)` | `GRAMGENDER` | RFC 9554 §3.2 |
-| `addPronouns(string $pronouns, string $lang)` | `PRONOUNS` | RFC 9554 §3.4 |
-| `addLanguage(string $language)` | `LANGUAGE` | RFC 9554 §3.3 |
+### Supported Specifications
 
-### Delivery Addressing Properties
-| Method | VCard Property | RFC |
-|--------|---------------|-----|
-| `addAddress(string $poBox, string $ext, string $street, string $city, string $region, string $zip, string $country, string $type)` | `ADR` | RFC 6350 §6.3.1 |
+| RFC | Description |
+|-----|-------------|
+| [RFC 6350](https://datatracker.ietf.org/doc/html/rfc6350) | vCard Format Specification (vCard 4.0) — core standard |
+| [RFC 6474](https://datatracker.ietf.org/doc/html/rfc6474) | Birth/Death properties |
+| [RFC 6715](https://datatracker.ietf.org/doc/html/rfc6715) | Expertise, Hobby, Interest properties |
+| [RFC 8605](https://datatracker.ietf.org/doc/html/rfc8605) | CONTACT-URI property |
+| [RFC 9554](https://datatracker.ietf.org/doc/html/rfc9554) | GRAMGENDER, LANGUAGE, PRONOUNS, SOCIALPROFILE, CREATED |
+| [RFC 9555](https://datatracker.ietf.org/doc/html/rfc9555) | JSPROP (JSContact bridge) |
 
-### Communications Properties
-| Method | VCard Property | RFC |
-|--------|---------------|-----|
-| `addPhoneNumber(string $number, string $type)` | `TEL` | RFC 6350 §6.4.1 |
-| `addEmail(string $email, string $type)` | `EMAIL` | RFC 6350 §6.4.2 |
-| `addImpp(string $uri, string $type)` | `IMPP` | RFC 6350 §6.4.3 |
-| `addLang(string $languageTag, string $type)` | `LANG` | RFC 6350 §6.4.4 |
-| `addSocialProfile(string $uri, string $service)` | `SOCIALPROFILE` | RFC 9554 §3.5 |
-| `addContactUri(string $uri)` | `CONTACT-URI` | RFC 8605 §2.1 |
-
-### Geographical Properties
-| Method | VCard Property | RFC |
-|--------|---------------|-----|
-| `addTz(string $timezone)` | `TZ` | RFC 6350 §6.5.1 |
-| `addGeo(string $geoUri)` | `GEO` | RFC 6350 §6.5.2 |
-
-### Organizational Properties
-| Method | VCard Property | RFC |
-|--------|---------------|-----|
-| `addJobTitle(string $title)` | `TITLE` | RFC 6350 §6.6.1 |
-| `addRole(string $role)` | `ROLE` | RFC 6350 §6.6.2 |
-| `addLogo(string $urlOrBase64, string $mediaType)` | `LOGO` | RFC 6350 §6.6.3 |
-| `addCompany(string $org, string ...$units)` | `ORG` | RFC 6350 §6.6.4 |
-| `addMember(string $uri)` | `MEMBER` | RFC 6350 §6.6.5 |
-| `addRelated(string $uri, string $type)` | `RELATED` | RFC 6350 §6.6.6 |
-| `addOrgDirectory(string $uri)` | `ORG-DIRECTORY` | RFC 6715 §2.4 |
-
-### Explanatory Properties
-| Method | VCard Property | RFC |
-|--------|---------------|-----|
-| `addCategories(string ...$tags)` | `CATEGORIES` | RFC 6350 §6.7.1 |
-| `addNote(string $note)` | `NOTE` | RFC 6350 §6.7.2 |
-| `addProdid(string $prodid)` | `PRODID` | RFC 6350 §6.7.3 |
-| `addSound(string $urlOrBase64, string $mediaType)` | `SOUND` | RFC 6350 §6.7.5 |
-| `addUid(string $uid)` | `UID` | RFC 6350 §6.7.6 |
-| `addClientpidmap(int $pid, string $uri)` | `CLIENTPIDMAP` | RFC 6350 §6.7.7 |
-| `addUrl(string $url, string $type)` | `URL` | RFC 6350 §6.7.8 |
-| `addCreated(string $timestamp)` | `CREATED` | RFC 9554 §3.1 |
-
-### Security Properties
-| Method | VCard Property | RFC |
-|--------|---------------|-----|
-| `addKey(string $key, string $mediaType)` | `KEY` | RFC 6350 §6.8.1 |
-
-### Calendar Properties
-| Method | VCard Property | RFC |
-|--------|---------------|-----|
-| `addFburl(string $uri, string $type)` | `FBURL` | RFC 6350 §6.9.1 |
-| `addCaladruri(string $uri, string $type)` | `CALADRURI` | RFC 6350 §6.9.2 |
-| `addCaluri(string $uri, string $type)` | `CALURI` | RFC 6350 §6.9.3 |
-
-### Birth/Death Properties (RFC 6474)
-| Method | VCard Property | RFC |
-|--------|---------------|-----|
-| `addBirthplace(string $place)` | `BIRTHPLACE` | RFC 6474 §2.1 |
-| `addDeathplace(string $place)` | `DEATHPLACE` | RFC 6474 §2.2 |
-| `addDeathdate(string $date)` | `DEATHDATE` | RFC 6474 §2.3 |
-
-### Expertise / Hobby / Interest Properties (RFC 6715)
-| Method | VCard Property | RFC |
-|--------|---------------|-----|
-| `addExpertise(string $area, string $level)` | `EXPERTISE` | RFC 6715 §2.1 |
-| `addHobby(string $hobby, string $level)` | `HOBBY` | RFC 6715 §2.2 |
-| `addInterest(string $interest, string $level)` | `INTEREST` | RFC 6715 §2.3 |
-
-### JSContact Properties (RFC 9555)
-| Method | VCard Property | RFC |
-|--------|---------------|-----|
-| `addJsprop(string $key, string $jsonValue)` | `JSPROP` | RFC 9555 §3.2.1 |
-
-### Custom / Vendor-Prefixed Properties
-| Method | Description |
-|--------|-------------|
-| `addProperty(string $name, string $value, array $params)` | Add any `X-` or vendor property |
+Registry: https://www.iana.org/assignments/vcard-elements/vcard-elements.xhtml
 
 ---
 
-## Best Practices
+## Supported Properties
 
-### ✅ 1. Always use `addName()` — not just `addFormattedName()`
+### General
+| Property | Method | RFC |
+|----------|--------|-----|
+| `SOURCE` | `addSource()` | RFC 6350 §6.1.3 |
+| `KIND` | `addKind()` | RFC 6350 §6.1.4 |
+| `XML` | `addXml()` | RFC 6350 §6.1.5 |
 
-`addName()` sets both `N` (structured name components) and auto-generates `FN`. This gives clients (iOS Contacts, Google Contacts, Outlook) the data they need to sort and search correctly.
+### Identification
+| Property | Method | RFC |
+|----------|--------|-----|
+| `FN` ⚠️ required | `addFormattedName()` | RFC 6350 §6.2.1 |
+| `N` | `addName()` | RFC 6350 §6.2.2 |
+| `NICKNAME` | `addNickname()` | RFC 6350 §6.2.3 |
+| `PHOTO` | `addPhoto()` | RFC 6350 §6.2.4 |
+| `BDAY` | `addBirthday()` | RFC 6350 §6.2.5 |
+| `ANNIVERSARY` | `addAnniversary()` | RFC 6350 §6.2.6 |
+| `GENDER` | `addGender()` | RFC 6350 §6.2.7 |
+| `GRAMGENDER` | `addGramGender()` | RFC 9554 §3.2 |
+| `PRONOUNS` | `addPronouns()` | RFC 9554 §3.4 |
+| `LANGUAGE` | `addLanguage()` | RFC 9554 §3.3 |
+
+### Delivery Addressing
+| Property | Method | RFC |
+|----------|--------|-----|
+| `ADR` | `addAddress()` | RFC 6350 §6.3.1 |
+
+### Communications
+| Property | Method | RFC |
+|----------|--------|-----|
+| `TEL` | `addPhoneNumber()` | RFC 6350 §6.4.1 |
+| `EMAIL` | `addEmail()` | RFC 6350 §6.4.2 |
+| `IMPP` | `addImpp()` | RFC 6350 §6.4.3 |
+| `LANG` | `addLang()` | RFC 6350 §6.4.4 |
+| `SOCIALPROFILE` | `addSocialProfile()` | RFC 9554 §3.5 |
+| `CONTACT-URI` | `addContactUri()` | RFC 8605 §2.1 |
+
+### Geographical
+| Property | Method | RFC |
+|----------|--------|-----|
+| `TZ` | `addTz()` | RFC 6350 §6.5.1 |
+| `GEO` | `addGeo()` | RFC 6350 §6.5.2 |
+
+### Organizational
+| Property | Method | RFC |
+|----------|--------|-----|
+| `TITLE` | `addJobTitle()` | RFC 6350 §6.6.1 |
+| `ROLE` | `addRole()` | RFC 6350 §6.6.2 |
+| `LOGO` | `addLogo()` | RFC 6350 §6.6.3 |
+| `ORG` | `addCompany()` | RFC 6350 §6.6.4 |
+| `MEMBER` | `addMember()` | RFC 6350 §6.6.5 |
+| `RELATED` | `addRelated()` | RFC 6350 §6.6.6 |
+| `ORG-DIRECTORY` | `addOrgDirectory()` | RFC 6715 §2.4 |
+
+### Explanatory
+| Property | Method | RFC |
+|----------|--------|-----|
+| `CATEGORIES` | `addCategories()` | RFC 6350 §6.7.1 |
+| `NOTE` | `addNote()` | RFC 6350 §6.7.2 |
+| `PRODID` | `addProdid()` | RFC 6350 §6.7.3 |
+| `SOUND` | `addSound()` | RFC 6350 §6.7.5 |
+| `UID` | `addUid()` | RFC 6350 §6.7.6 |
+| `CLIENTPIDMAP` | `addClientpidmap()` | RFC 6350 §6.7.7 |
+| `URL` | `addUrl()` | RFC 6350 §6.7.8 |
+| `CREATED` | `addCreated()` | RFC 9554 §3.1 |
+
+### Security
+| Property | Method | RFC |
+|----------|--------|-----|
+| `KEY` | `addKey()` | RFC 6350 §6.8.1 |
+
+### Calendar
+| Property | Method | RFC |
+|----------|--------|-----|
+| `FBURL` | `addFburl()` | RFC 6350 §6.9.1 |
+| `CALADRURI` | `addCaladruri()` | RFC 6350 §6.9.2 |
+| `CALURI` | `addCaluri()` | RFC 6350 §6.9.3 |
+
+### Birth/Death (RFC 6474)
+| Property | Method |
+|----------|--------|
+| `BIRTHPLACE` | `addBirthplace()` |
+| `DEATHPLACE` | `addDeathplace()` |
+| `DEATHDATE` | `addDeathdate()` |
+
+### Expertise / Hobby / Interest (RFC 6715)
+| Property | Method |
+|----------|--------|
+| `EXPERTISE` | `addExpertise()` |
+| `HOBBY` | `addHobby()` |
+| `INTEREST` | `addInterest()` |
+
+### JSContact (RFC 9555)
+| Property | Method |
+|----------|--------|
+| `JSPROP` | `addJsprop()` |
+
+---
+
+## Usage
+
+### Name
 
 ```php
-// ✅ Good — sets N + FN automatically
-VCard::make()->addName('Doe', 'John', prefix: 'Dr.');
-
-// ⚠️ Acceptable — only sets FN, no structured name for sorting
-VCard::make()->addFormattedName('Dr. John Doe');
+VCard::make()->addName(
+    lastName:   'Doe',
+    firstName:  'John',
+    additional: '',
+    prefix:     'Dr.',
+    suffix:     'Jr.'
+);
 ```
 
-### ✅ 2. Always set `UID` for addressbook sync
-
-Without `UID`, many sync clients (CardDAV, Exchange) cannot update existing entries. Use a UUID:
+### Email
 
 ```php
-VCard::make()
-    ->addName('Doe', 'John')
-    ->addUid('urn:uuid:' . \Ramsey\Uuid\Uuid::uuid4());
+->addEmail('john@example.com', 'work')
+->addEmail('john@personal.com', 'home')
 ```
 
-### ✅ 3. Use `CELL` for mobile numbers
-
-The `CELL` type ensures iOS/Android correctly identifies numbers for messaging apps:
+### Phone
 
 ```php
-->addPhoneNumber('+1234567890', 'CELL')  // ✅ Mobile
-->addPhoneNumber('+0987654321', 'WORK')  // Office
-->addPhoneNumber('+1122334455', 'FAX')   // Fax
+->addPhoneNumber('+62-812-3456-7890', 'cell')
+->addPhoneNumber('+62-21-0000-0000', 'work')
 ```
 
-### ✅ 4. Use `geo:` URIs for GEO
+### Address
 
 ```php
-->addGeo('geo:37.386013,-122.082932')
+->addAddress(
+    poBox:    '',
+    extended: '',
+    street:   'Jl. Example No. 1',
+    city:     'Bandung',
+    region:   'West Java',
+    zip:      '40000',
+    country:  'Indonesia',
+    type:     'work'
+)
 ```
 
-### ✅ 5. Prefer VCard 3.0 for maximum device compatibility
-
-VCard 4.0 is the latest standard, but many phones and clients still have incomplete support. Unless you specifically need 4.0 features (like `JSPROP`, `GRAMGENDER`, `PRONOUNS`), stick with 3.0:
+### Photo
 
 ```php
-VCard::make('3.0') // default — best compatibility
-VCard::make('4.0') // use only if you need RFC 9554/9555 features
+// URL
+->addPhoto('https://example.com/photo.jpg', 'image/jpeg')
+
+// Embedded (raw base64 → automatically wrapped as data: URI)
+->addPhoto($base64String, 'image/jpeg')
 ```
 
-### ✅ 6. Use `SOCIALPROFILE` for social links (not custom `X-` properties)
-
-RFC 9554 defines a proper `SOCIALPROFILE` property. Prefer it over legacy `X-TWITTER`, `X-LINKEDIN` etc.:
+### Social Profiles
 
 ```php
-// ✅ Modern — RFC 9554
 ->addSocialProfile('https://github.com/johndoe', 'GitHub')
 ->addSocialProfile('https://linkedin.com/in/johndoe', 'LinkedIn')
-
-// ⚠️ Legacy — only for clients that don't understand SOCIALPROFILE
-->addProperty('X-TWITTER', '@johndoe')
 ```
 
-### ✅ 7. Prefix custom properties with `X-`
-
-Any non-standard property must be prefixed with `X-` to avoid conflicts with future RFC additions:
+### Expertise / Hobby / Interest
 
 ```php
-->addProperty('X-MY-APP-ID', 'user_12345')
+->addExpertise('PHP', 'expert')
+->addHobby('Rock Climbing', 'average')
+->addInterest('Open Source', 'expert')
+```
+
+### Categories
+
+```php
+->addCategories('Developer', 'Open Source', 'PHP')
+```
+
+### UID (recommended for sync)
+
+```php
+->addUid('urn:uuid:' . $uuid)
+```
+
+### Custom Properties
+
+```php
+->addProperty('X-CUSTOM-FIELD', 'value')
 ```
 
 ---
 
 ## Validation
 
-The only hard requirement enforced at runtime is that `FN` (Formatted Name) **must** be set before calling `build()`. This is the single mandatory property per RFC 6350 §6.2.1.
+The only enforced requirement at runtime is `FN` (Formatted Name), which is mandatory per [RFC 6350 §6.2.1](https://datatracker.ietf.org/doc/html/rfc6350#section-6.2.1).
 
-All other values are passed through as-is, giving you full flexibility to handle non-standard data, edge cases, and proprietary client extensions.
+```php
+// Throws InvalidArgumentException
+VCard::make()->addPhoneNumber('123')->build();
+
+// OK — addName() sets FN automatically
+VCard::make()->addName('Doe', 'John')->build();
+```
+
+All other values are passed through as-is for maximum flexibility.
 
 ---
 
-## Testing
+## Compatibility
 
-```bash
-composer test
-```
+This package aims to work with:
+
+- Apple Contacts
+- Google Contacts
+- Android Contacts
+- Outlook
+- Thunderbird
+- CardDAV systems
+
+Compatibility may vary depending on vendor-specific behavior.
+
+---
+
+## Design Goals
+
+- Standards-oriented (RFC 6350 first)
+- Zero external dependencies
+- Modern PHP 8.2+ API
+- Interoperability first
+- Extensible and lightweight
+
+---
+
+## Roadmap
+
+- [ ] Validation API
+- [ ] vCard parsing / reading
+- [ ] jCard (JSON) support
+- [ ] xCard (XML) support
+- [ ] CardDAV helpers
+
+---
+
+## Why Another vCard Library?
+
+Most existing PHP vCard libraries are:
+
+- Focused on vCard 2.1 or 3.0
+- No longer actively maintained
+- Not aligned with RFC 6350
+- Using outdated binary encoding (`ENCODING=b`) instead of `data:` URIs
+
+This package focuses on modern vCard 4.0 standards and a clean developer experience.
+
+---
+
+## Contributing
+
+Contributions, bug reports, and interoperability test cases are welcome.
+
+---
 
 ## License
 
-The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+MIT — see [LICENSE.md](LICENSE.md)
