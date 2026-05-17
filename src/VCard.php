@@ -9,6 +9,7 @@ namespace Dunn\VCard;
  */
 class VCard
 {
+    /** @var array<string, mixed> */
     private array $properties = [];
     private string $version = '4.0';
 
@@ -491,7 +492,11 @@ class VCard
     // https://datatracker.ietf.org/doc/html/rfc6350#section-6.10
     // -------------------------------------------------------------------------
 
-    /** Add a custom or vendor-prefixed property (X- prefix recommended). */
+    /**
+     * Add a custom or vendor-prefixed property (X- prefix recommended).
+     *
+     * @param array<string, mixed> $params
+     */
     public function addProperty(string $name, string $value, array $params = []): self
     {
         $this->append($name, $value, $params);
@@ -551,6 +556,7 @@ class VCard
     // Private helpers
     // -------------------------------------------------------------------------
 
+    /** @param array<string, mixed> $params */
     private function append(string $key, string $value, array $params = []): void
     {
         if (!isset($this->properties[$key])) {
@@ -559,6 +565,7 @@ class VCard
         $this->properties[$key][] = array_merge(['value' => $value], $params);
     }
 
+    /** @param array<string, mixed> $data */
     private function buildLine(string $key, array $data): string
     {
         $value  = $data['value'] ?? '';
