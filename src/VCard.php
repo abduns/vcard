@@ -2,50 +2,55 @@
 
 namespace Dunn\VCard;
 
+/**
+ * VCard builder — RFC 6350 compliant.
+ *
+ * Specification: https://datatracker.ietf.org/doc/html/rfc6350
+ */
 class VCard
 {
     private array $properties = [];
-    private string $version = '3.0';
+    private string $version = '4.0';
 
-    public function __construct(string $version = '3.0')
+    /** Map shorthand media-type aliases → full MIME type strings */
+    private const MIME_MAP = [
+        'JPEG' => 'image/jpeg', 'JPG'  => 'image/jpeg',
+        'PNG'  => 'image/png',  'GIF'  => 'image/gif',
+        'WEBP' => 'image/webp', 'SVG'  => 'image/svg+xml',
+        'OGG'  => 'audio/ogg',  'MP3'  => 'audio/mpeg',
+        'WAV'  => 'audio/wav',
+    ];
+
+    public function __construct(string $version = '4.0')
     {
         $this->version = $version;
     }
 
-    public static function make(string $version = '3.0'): self
+    public static function make(string $version = '4.0'): self
     {
         return new self($version);
     }
 
     // -------------------------------------------------------------------------
     // § 6.1 General Properties
+    // https://datatracker.ietf.org/doc/html/rfc6350#section-6.1
     // -------------------------------------------------------------------------
 
-    /**
-     * SOURCE – URI(s) that can be used to get the latest version of this vCard.
-     * [RFC6350, Section 6.1.3]
-     */
+    /** SOURCE – https://datatracker.ietf.org/doc/html/rfc6350#section-6.1.3 */
     public function addSource(string $uri): self
     {
         $this->append('SOURCE', $uri);
         return $this;
     }
 
-    /**
-     * KIND – The type of entity this vCard represents.
-     * Values: individual | group | org | location
-     * [RFC6350, Section 6.1.4]
-     */
+    /** KIND – https://datatracker.ietf.org/doc/html/rfc6350#section-6.1.4 */
     public function addKind(string $kind): self
     {
         $this->properties['KIND'] = $kind;
         return $this;
     }
 
-    /**
-     * XML – Any XML not covered by other vCard properties.
-     * [RFC6350, Section 6.1.5]
-     */
+    /** XML – https://datatracker.ietf.org/doc/html/rfc6350#section-6.1.5 */
     public function addXml(string $xml): self
     {
         $this->append('XML', $xml);
@@ -54,22 +59,19 @@ class VCard
 
     // -------------------------------------------------------------------------
     // § 6.2 Identification Properties
+    // https://datatracker.ietf.org/doc/html/rfc6350#section-6.2
     // -------------------------------------------------------------------------
 
-    /**
-     * FN – The formatted name string associated with the vCard.
-     * [RFC6350, Section 6.2.1]
-     */
+    /** FN (required) – https://datatracker.ietf.org/doc/html/rfc6350#section-6.2.1 */
     public function addFormattedName(string $formattedName): self
     {
-        $this->properties['FN'] = $formattedName;
+        $this->properties['FN'] = $this->escape($formattedName);
         return $this;
     }
 
     /**
-     * N – Components of the name of the object the vCard represents.
+     * N – https://datatracker.ietf.org/doc/html/rfc6350#section-6.2.2
      * Auto-generates FN if not already set.
-     * [RFC6350, Section 6.2.2]
      */
     public function addName(
         string $lastName,
@@ -94,10 +96,7 @@ class VCard
         return $this;
     }
 
-    /**
-     * NICKNAME – One or more descriptive/familiar names for the object.
-     * [RFC6350, Section 6.2.3]
-     */
+    /** NICKNAME – https://datatracker.ietf.org/doc/html/rfc6350#section-6.2.3 */
     public function addNickname(string ...$nicknames): self
     {
         $this->properties['NICKNAME'] = implode(',', array_map([$this, 'escape'], $nicknames));
@@ -105,72 +104,53 @@ class VCard
     }
 
     /**
-     * PHOTO – An image or photograph information that annotates some aspect of
-     * the object the vCard represents.
-     * [RFC6350, Section 6.2.4]
+     * PHOTO – https://datatracker.ietf.org/doc/html/rfc6350#section-6.2.4
+     * RFC 6350: value MUST be a URI. Use a data: URI for embedded images.
+     * @param string $uriOrBase64 Full URI, data: URI, or raw base64 string.
+     * @param string $mediaType   MIME type or shorthand (e.g. 'JPEG', 'image/png').
      */
-    public function addPhoto(string $urlOrBase64, string $mediaType = 'JPEG'): self
+    public function addPhoto(string $uriOrBase64, string $mediaType = 'image/jpeg'): self
     {
-        $this->properties['PHOTO'] = ['value' => $urlOrBase64, 'mediaType' => $mediaType];
+        $this->properties['PHOTO'] = ['value' => $uriOrBase64, 'mediaType' => $mediaType, 'prop' => 'PHOTO'];
         return $this;
     }
 
-    /**
-     * BDAY – The birth date of the object the vCard represents.
-     * [RFC6350, Section 6.2.5]
-     */
+    /** BDAY – https://datatracker.ietf.org/doc/html/rfc6350#section-6.2.5 */
     public function addBirthday(string $date): self
     {
         $this->properties['BDAY'] = $date;
         return $this;
     }
 
-    /**
-     * ANNIVERSARY – The date of marriage, or equivalent, of the object.
-     * [RFC6350, Section 6.2.6]
-     */
+    /** ANNIVERSARY – https://datatracker.ietf.org/doc/html/rfc6350#section-6.2.6 */
     public function addAnniversary(string $date): self
     {
         $this->properties['ANNIVERSARY'] = $date;
         return $this;
     }
 
-    /**
-     * GENDER – Defines the sex and/or gender identity of the object.
-     * sex: M | F | O | N | U
-     * [RFC6350, Section 6.2.7]
-     */
+    /** GENDER – https://datatracker.ietf.org/doc/html/rfc6350#section-6.2.7 */
     public function addGender(string $sex, string $identity = ''): self
     {
         $this->properties['GENDER'] = $identity !== '' ? "{$sex};{$identity}" : $sex;
         return $this;
     }
 
-    /**
-     * GRAMGENDER – Defines the grammatical gender to be used for the object.
-     * Values: animate | common | feminine | inanimate | masculine | neuter
-     * [RFC9554, Section 3.2]
-     */
+    /** GRAMGENDER – https://datatracker.ietf.org/doc/html/rfc9554#section-3.2 */
     public function addGramGender(string $gramGender): self
     {
         $this->properties['GRAMGENDER'] = strtolower($gramGender);
         return $this;
     }
 
-    /**
-     * PRONOUNS – Defines the pronouns to be used for the object.
-     * [RFC9554, Section 3.4]
-     */
+    /** PRONOUNS – https://datatracker.ietf.org/doc/html/rfc9554#section-3.4 */
     public function addPronouns(string $pronouns, string $language = ''): self
     {
         $this->properties['PRONOUNS'] = ['value' => $pronouns, 'language' => $language];
         return $this;
     }
 
-    /**
-     * LANGUAGE – Defines the default language for the vCard.
-     * [RFC9554, Section 3.3]
-     */
+    /** LANGUAGE – https://datatracker.ietf.org/doc/html/rfc9554#section-3.3 */
     public function addLanguage(string $language): self
     {
         $this->properties['LANGUAGE'] = $language;
@@ -178,12 +158,13 @@ class VCard
     }
 
     // -------------------------------------------------------------------------
-    // § 6.3 Delivery Addressing Properties
+    // § 6.3 Delivery Addressing
+    // https://datatracker.ietf.org/doc/html/rfc6350#section-6.3
     // -------------------------------------------------------------------------
 
     /**
-     * ADR – A structured representation of the physical delivery address.
-     * [RFC6350, Section 6.3.1]
+     * ADR – https://datatracker.ietf.org/doc/html/rfc6350#section-6.3.1
+     * Components: post-office-box; extended-address; street; locality; region; postal-code; country
      */
     public function addAddress(
         string $poBox,
@@ -210,53 +191,38 @@ class VCard
 
     // -------------------------------------------------------------------------
     // § 6.4 Communications Properties
+    // https://datatracker.ietf.org/doc/html/rfc6350#section-6.4
     // -------------------------------------------------------------------------
 
-    /**
-     * TEL – The canonical number string for a telephone number.
-     * [RFC6350, Section 6.4.1]
-     */
-    public function addPhoneNumber(string $number, string $type = 'CELL'): self
+    /** TEL – https://datatracker.ietf.org/doc/html/rfc6350#section-6.4.1 */
+    public function addPhoneNumber(string $number, string $type = 'cell'): self
     {
         $this->append('TEL', $number, ['type' => $type]);
         return $this;
     }
 
-    /**
-     * EMAIL – The address for electronic mail communication.
-     * [RFC6350, Section 6.4.2]
-     */
-    public function addEmail(string $email, string $type = 'INTERNET'): self
+    /** EMAIL – https://datatracker.ietf.org/doc/html/rfc6350#section-6.4.2 */
+    public function addEmail(string $email, string $type = 'work'): self
     {
         $this->append('EMAIL', $email, ['type' => $type]);
         return $this;
     }
 
-    /**
-     * IMPP – An URI for an instant messaging and presence protocol.
-     * e.g. "xmpp:user@host", "sip:user@host", "aim:screenname"
-     * [RFC6350, Section 6.4.3]
-     */
+    /** IMPP – https://datatracker.ietf.org/doc/html/rfc6350#section-6.4.3 */
     public function addImpp(string $uri, string $type = ''): self
     {
         $this->append('IMPP', $uri, $type !== '' ? ['type' => $type] : []);
         return $this;
     }
 
-    /**
-     * LANG – Defines the language(s) that may be used to contact the object.
-     * [RFC6350, Section 6.4.4]
-     */
+    /** LANG – https://datatracker.ietf.org/doc/html/rfc6350#section-6.4.4 */
     public function addLang(string $languageTag, string $type = ''): self
     {
         $this->append('LANG', $languageTag, $type !== '' ? ['type' => $type] : []);
         return $this;
     }
 
-    /**
-     * SOCIALPROFILE – Specifies a social network resource for the object.
-     * [RFC9554, Section 3.5]
-     */
+    /** SOCIALPROFILE – https://datatracker.ietf.org/doc/html/rfc9554#section-3.5 */
     public function addSocialProfile(string $uri, string $service = ''): self
     {
         $params = $service !== '' ? ['service-type' => $service] : [];
@@ -264,10 +230,7 @@ class VCard
         return $this;
     }
 
-    /**
-     * CONTACT-URI – A URI to be used in addition to the vCard for contacting the object.
-     * [RFC8605, Section 2.1]
-     */
+    /** CONTACT-URI – https://datatracker.ietf.org/doc/html/rfc8605#section-2.1 */
     public function addContactUri(string $uri): self
     {
         $this->append('CONTACT-URI', $uri);
@@ -276,23 +239,17 @@ class VCard
 
     // -------------------------------------------------------------------------
     // § 6.5 Geographical Properties
+    // https://datatracker.ietf.org/doc/html/rfc6350#section-6.5
     // -------------------------------------------------------------------------
 
-    /**
-     * TZ – The time zone(s) of the object the vCard represents.
-     * [RFC6350, Section 6.5.1]
-     */
+    /** TZ – https://datatracker.ietf.org/doc/html/rfc6350#section-6.5.1 */
     public function addTz(string $timezone): self
     {
         $this->properties['TZ'] = $timezone;
         return $this;
     }
 
-    /**
-     * GEO – A geographic position associated with the object.
-     * Formatted as a "geo:" URI, e.g. "geo:37.386013,-122.082932"
-     * [RFC6350, Section 6.5.2]
-     */
+    /** GEO – https://datatracker.ietf.org/doc/html/rfc6350#section-6.5.2 */
     public function addGeo(string $geoUri): self
     {
         $this->properties['GEO'] = $geoUri;
@@ -301,22 +258,17 @@ class VCard
 
     // -------------------------------------------------------------------------
     // § 6.6 Organizational Properties
+    // https://datatracker.ietf.org/doc/html/rfc6350#section-6.6
     // -------------------------------------------------------------------------
 
-    /**
-     * TITLE – The position or job of the object.
-     * [RFC6350, Section 6.6.1]
-     */
+    /** TITLE – https://datatracker.ietf.org/doc/html/rfc6350#section-6.6.1 */
     public function addJobTitle(string $jobTitle): self
     {
         $this->properties['TITLE'] = $this->escape($jobTitle);
         return $this;
     }
 
-    /**
-     * ROLE – The role, occupation, or business category of the object.
-     * [RFC6350, Section 6.6.2]
-     */
+    /** ROLE – https://datatracker.ietf.org/doc/html/rfc6350#section-6.6.2 */
     public function addRole(string $role): self
     {
         $this->properties['ROLE'] = $this->escape($role);
@@ -324,20 +276,16 @@ class VCard
     }
 
     /**
-     * LOGO – A graphic image of a logo associated with the object.
-     * [RFC6350, Section 6.6.3]
+     * LOGO – https://datatracker.ietf.org/doc/html/rfc6350#section-6.6.3
+     * RFC 6350: value MUST be a URI.
      */
-    public function addLogo(string $urlOrBase64, string $mediaType = 'JPEG'): self
+    public function addLogo(string $uriOrBase64, string $mediaType = 'image/jpeg'): self
     {
-        $this->properties['LOGO'] = ['value' => $urlOrBase64, 'mediaType' => $mediaType];
+        $this->properties['LOGO'] = ['value' => $uriOrBase64, 'mediaType' => $mediaType, 'prop' => 'LOGO'];
         return $this;
     }
 
-    /**
-     * ORG – The name and optionally the unit(s) of the organization.
-     * Pass multiple units as additional arguments.
-     * [RFC6350, Section 6.6.4]
-     */
+    /** ORG – https://datatracker.ietf.org/doc/html/rfc6350#section-6.6.4 */
     public function addCompany(string $organization, string ...$units): self
     {
         $parts = [$this->escape($organization)];
@@ -348,31 +296,21 @@ class VCard
         return $this;
     }
 
-    /**
-     * MEMBER – A member in the group this vCard represents.
-     * VALUE must be a URI (e.g. "mailto:user@example.com", "urn:uuid:...").
-     * [RFC6350, Section 6.6.5]
-     */
+    /** MEMBER – https://datatracker.ietf.org/doc/html/rfc6350#section-6.6.5 */
     public function addMember(string $uri): self
     {
         $this->append('MEMBER', $uri);
         return $this;
     }
 
-    /**
-     * RELATED – A person or entity that is related to the object.
-     * [RFC6350, Section 6.6.6]
-     */
+    /** RELATED – https://datatracker.ietf.org/doc/html/rfc6350#section-6.6.6 */
     public function addRelated(string $uri, string $type = ''): self
     {
         $this->append('RELATED', $uri, $type !== '' ? ['type' => $type] : []);
         return $this;
     }
 
-    /**
-     * ORG-DIRECTORY – A URI representing the object's directory entries.
-     * [RFC6715, Section 2.4]
-     */
+    /** ORG-DIRECTORY – https://datatracker.ietf.org/doc/html/rfc6715#section-2.4 */
     public function addOrgDirectory(string $uri): self
     {
         $this->append('ORG-DIRECTORY', $uri);
@@ -381,33 +319,24 @@ class VCard
 
     // -------------------------------------------------------------------------
     // § 6.7 Explanatory Properties
+    // https://datatracker.ietf.org/doc/html/rfc6350#section-6.7
     // -------------------------------------------------------------------------
 
-    /**
-     * CATEGORIES – A list of "tags" that can be used to describe the object.
-     * [RFC6350, Section 6.7.1]
-     */
+    /** CATEGORIES – https://datatracker.ietf.org/doc/html/rfc6350#section-6.7.1 */
     public function addCategories(string ...$categories): self
     {
-        $escaped = array_map([$this, 'escape'], $categories);
-        $this->properties['CATEGORIES'] = implode(',', $escaped);
+        $this->properties['CATEGORIES'] = implode(',', array_map([$this, 'escape'], $categories));
         return $this;
     }
 
-    /**
-     * NOTE – Supplemental information or a comment associated with the vCard.
-     * [RFC6350, Section 6.7.2]
-     */
+    /** NOTE – https://datatracker.ietf.org/doc/html/rfc6350#section-6.7.2 */
     public function addNote(string $note): self
     {
         $this->properties['NOTE'] = $this->escape($note);
         return $this;
     }
 
-    /**
-     * PRODID – The identifier for the product that created the vCard object.
-     * [RFC6350, Section 6.7.3]
-     */
+    /** PRODID – https://datatracker.ietf.org/doc/html/rfc6350#section-6.7.3 */
     public function addProdid(string $prodid): self
     {
         $this->properties['PRODID'] = $prodid;
@@ -415,49 +344,37 @@ class VCard
     }
 
     /**
-     * SOUND – A digital sound content associated with the object.
-     * [RFC6350, Section 6.7.5]
+     * SOUND – https://datatracker.ietf.org/doc/html/rfc6350#section-6.7.5
+     * RFC 6350: value MUST be a URI.
      */
-    public function addSound(string $urlOrBase64, string $mediaType = 'OGG'): self
+    public function addSound(string $uriOrBase64, string $mediaType = 'audio/ogg'): self
     {
-        $this->properties['SOUND'] = ['value' => $urlOrBase64, 'mediaType' => $mediaType];
+        $this->properties['SOUND'] = ['value' => $uriOrBase64, 'mediaType' => $mediaType, 'prop' => 'SOUND'];
         return $this;
     }
 
-    /**
-     * UID – A globally unique identifier for the vCard.
-     * [RFC6350, Section 6.7.6]
-     */
+    /** UID – https://datatracker.ietf.org/doc/html/rfc6350#section-6.7.6 */
     public function addUid(string $uid): self
     {
         $this->properties['UID'] = $uid;
         return $this;
     }
 
-    /**
-     * CLIENTPIDMAP – A PID source identifier mapping.
-     * [RFC6350, Section 6.7.7]
-     */
+    /** CLIENTPIDMAP – https://datatracker.ietf.org/doc/html/rfc6350#section-6.7.7 */
     public function addClientpidmap(int $pid, string $uri): self
     {
         $this->append('CLIENTPIDMAP', "{$pid};{$uri}");
         return $this;
     }
 
-    /**
-     * URL – A URI pointing to a website associated with the object.
-     * [RFC6350, Section 6.7.8]
-     */
-    public function addUrl(string $url, string $type = 'WORK'): self
+    /** URL – https://datatracker.ietf.org/doc/html/rfc6350#section-6.7.8 */
+    public function addUrl(string $url, string $type = 'work'): self
     {
         $this->append('URL', $url, ['type' => $type]);
         return $this;
     }
 
-    /**
-     * CREATED – The timestamp when this vCard was created.
-     * [RFC9554, Section 3.1]
-     */
+    /** CREATED – https://datatracker.ietf.org/doc/html/rfc9554#section-3.1 */
     public function addCreated(string $timestamp): self
     {
         $this->properties['CREATED'] = $timestamp;
@@ -466,46 +383,39 @@ class VCard
 
     // -------------------------------------------------------------------------
     // § 6.8 Security Properties
+    // https://datatracker.ietf.org/doc/html/rfc6350#section-6.8
     // -------------------------------------------------------------------------
 
     /**
-     * KEY – A public key or authentication certificate.
-     * [RFC6350, Section 6.8.1]
+     * KEY – https://datatracker.ietf.org/doc/html/rfc6350#section-6.8.1
+     * RFC 6350: value MUST be a URI.
      */
-    public function addKey(string $key, string $mediaType = 'application/pgp-keys'): self
+    public function addKey(string $uriOrBase64, string $mediaType = 'application/pgp-keys'): self
     {
-        $this->properties['KEY'] = ['value' => $key, 'mediaType' => $mediaType];
+        $this->properties['KEY'] = ['value' => $uriOrBase64, 'mediaType' => $mediaType, 'prop' => 'KEY'];
         return $this;
     }
 
     // -------------------------------------------------------------------------
     // § 6.9 Calendar Properties
+    // https://datatracker.ietf.org/doc/html/rfc6350#section-6.9
     // -------------------------------------------------------------------------
 
-    /**
-     * FBURL – A URI for the busy time associated with the object.
-     * [RFC6350, Section 6.9.1]
-     */
+    /** FBURL – https://datatracker.ietf.org/doc/html/rfc6350#section-6.9.1 */
     public function addFburl(string $uri, string $type = ''): self
     {
         $this->append('FBURL', $uri, $type !== '' ? ['type' => $type] : []);
         return $this;
     }
 
-    /**
-     * CALADRURI – A URI for a calendar user address.
-     * [RFC6350, Section 6.9.2]
-     */
+    /** CALADRURI – https://datatracker.ietf.org/doc/html/rfc6350#section-6.9.2 */
     public function addCaladruri(string $uri, string $type = ''): self
     {
         $this->append('CALADRURI', $uri, $type !== '' ? ['type' => $type] : []);
         return $this;
     }
 
-    /**
-     * CALURI – A URI for a calendar associated with the object.
-     * [RFC6350, Section 6.9.3]
-     */
+    /** CALURI – https://datatracker.ietf.org/doc/html/rfc6350#section-6.9.3 */
     public function addCaluri(string $uri, string $type = ''): self
     {
         $this->append('CALURI', $uri, $type !== '' ? ['type' => $type] : []);
@@ -513,33 +423,25 @@ class VCard
     }
 
     // -------------------------------------------------------------------------
-    // § RFC6474 – Birth/Death Properties
+    // RFC 6474 – Birth/Death extension
+    // https://datatracker.ietf.org/doc/html/rfc6474
     // -------------------------------------------------------------------------
 
-    /**
-     * BIRTHPLACE – The location of the object's birth.
-     * [RFC6474, Section 2.1]
-     */
+    /** BIRTHPLACE – https://datatracker.ietf.org/doc/html/rfc6474#section-2.1 */
     public function addBirthplace(string $place): self
     {
         $this->properties['BIRTHPLACE'] = $this->escape($place);
         return $this;
     }
 
-    /**
-     * DEATHPLACE – The location of the object's death.
-     * [RFC6474, Section 2.2]
-     */
+    /** DEATHPLACE – https://datatracker.ietf.org/doc/html/rfc6474#section-2.2 */
     public function addDeathplace(string $place): self
     {
         $this->properties['DEATHPLACE'] = $this->escape($place);
         return $this;
     }
 
-    /**
-     * DEATHDATE – The date of death of the object the vCard represents.
-     * [RFC6474, Section 2.3]
-     */
+    /** DEATHDATE – https://datatracker.ietf.org/doc/html/rfc6474#section-2.3 */
     public function addDeathdate(string $date): self
     {
         $this->properties['DEATHDATE'] = $date;
@@ -547,36 +449,25 @@ class VCard
     }
 
     // -------------------------------------------------------------------------
-    // § RFC6715 – Expertise / Hobby / Interest Properties
+    // RFC 6715 – Expertise / Hobby / Interest
+    // https://datatracker.ietf.org/doc/html/rfc6715
     // -------------------------------------------------------------------------
 
-    /**
-     * EXPERTISE – A professional subject area(s) that the object has knowledge of.
-     * level: beginner | average | expert
-     * [RFC6715, Section 2.1]
-     */
+    /** EXPERTISE – https://datatracker.ietf.org/doc/html/rfc6715#section-2.1 */
     public function addExpertise(string $area, string $level = 'average'): self
     {
         $this->append('EXPERTISE', $this->escape($area), ['level' => $level]);
         return $this;
     }
 
-    /**
-     * HOBBY – A recreational activity that the object actively engages in.
-     * level: beginner | average | expert
-     * [RFC6715, Section 2.2]
-     */
+    /** HOBBY – https://datatracker.ietf.org/doc/html/rfc6715#section-2.2 */
     public function addHobby(string $hobby, string $level = 'average'): self
     {
         $this->append('HOBBY', $this->escape($hobby), ['level' => $level]);
         return $this;
     }
 
-    /**
-     * INTEREST – A recreational activity the object is interested in.
-     * level: beginner | average | expert
-     * [RFC6715, Section 2.3]
-     */
+    /** INTEREST – https://datatracker.ietf.org/doc/html/rfc6715#section-2.3 */
     public function addInterest(string $interest, string $level = 'average'): self
     {
         $this->append('INTEREST', $this->escape($interest), ['level' => $level]);
@@ -584,13 +475,11 @@ class VCard
     }
 
     // -------------------------------------------------------------------------
-    // § RFC9555 – JSContact Properties
+    // RFC 9555 – JSContact/vCard bridge
+    // https://datatracker.ietf.org/doc/html/rfc9555
     // -------------------------------------------------------------------------
 
-    /**
-     * JSPROP – A JSON property for JSContact compatibility.
-     * [RFC9555, Section 3.2.1]
-     */
+    /** JSPROP – https://datatracker.ietf.org/doc/html/rfc9555#section-3.2.1 */
     public function addJsprop(string $key, string $jsonValue): self
     {
         $this->append('JSPROP', $jsonValue, ['jsptr' => $key]);
@@ -598,13 +487,11 @@ class VCard
     }
 
     // -------------------------------------------------------------------------
-    // Generic escape hatch for custom / vendor-prefixed properties
+    // Generic escape hatch
+    // https://datatracker.ietf.org/doc/html/rfc6350#section-6.10
     // -------------------------------------------------------------------------
 
-    /**
-     * Add a custom or vendor-prefixed property (X- prefix is recommended).
-     * e.g. addProperty('X-CUSTOM-FIELD', 'value')
-     */
+    /** Add a custom or vendor-prefixed property (X- prefix recommended). */
     public function addProperty(string $name, string $value, array $params = []): self
     {
         $this->append($name, $value, $params);
@@ -615,11 +502,17 @@ class VCard
     // Build
     // -------------------------------------------------------------------------
 
+    /**
+     * Build and return the vCard string.
+     *
+     * @throws \InvalidArgumentException if FN is missing (required by RFC 6350 §6.2.1)
+     */
     public function build(): string
     {
         if (!isset($this->properties['FN'])) {
             throw new \InvalidArgumentException(
-                'A formatted name (FN) is required by RFC 6350. Call addName() or addFormattedName() before build().'
+                'A formatted name (FN) is required by RFC 6350 §6.2.1. ' .
+                'Call addName() or addFormattedName() before build().'
             );
         }
 
@@ -630,13 +523,13 @@ class VCard
 
         foreach ($this->properties as $key => $data) {
             if (is_array($data)) {
-                // Multi-value list e.g. TEL, EMAIL, ADR, URL, SOCIALPROFILE …
+                // Multi-value list (TEL, EMAIL, ADR, URL, SOCIALPROFILE …)
                 if (isset($data[0]) && is_array($data[0])) {
                     foreach ($data as $item) {
                         $lines[] = $this->buildLine($key, $item);
                     }
                 } else {
-                    // Single structured value e.g. PHOTO, LOGO, SOUND, KEY, PRONOUNS
+                    // Single structured value (PHOTO, LOGO, SOUND, KEY, PRONOUNS)
                     $lines[] = $this->buildLine($key, $data);
                 }
             } else {
@@ -644,19 +537,20 @@ class VCard
             }
         }
 
-        $lines[] = 'REV:' . date('Y-m-d\TH:i:s\Z');
+        // REV – https://datatracker.ietf.org/doc/html/rfc6350#section-6.7.4
+        $lines[] = 'REV:' . gmdate('Ymd\THis\Z');
         $lines[] = 'END:VCARD';
 
-        return implode("\r\n", $lines) . "\r\n";
+        // Apply line folding per RFC 6350 §3.2
+        $folded = array_map([$this, 'fold'], $lines);
+
+        return implode("\r\n", $folded) . "\r\n";
     }
 
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
 
-    /**
-     * Append a property item to the multi-value bucket for $key.
-     */
     private function append(string $key, string $value, array $params = []): void
     {
         if (!isset($this->properties[$key])) {
@@ -665,30 +559,33 @@ class VCard
         $this->properties[$key][] = array_merge(['value' => $value], $params);
     }
 
-    /**
-     * Serialize a structured property item into a VCard line.
-     */
     private function buildLine(string $key, array $data): string
     {
-        $value = $data['value'] ?? '';
+        $value  = $data['value'] ?? '';
         $params = [];
 
         // TYPE parameter
         if (!empty($data['type'])) {
-            $params[] = 'TYPE=' . strtoupper($data['type']);
+            $params[] = 'TYPE=' . $data['type'];
         }
 
-        // Media type / encoding (PHOTO, LOGO, SOUND, KEY)
+        // Media-type properties: PHOTO, LOGO, SOUND, KEY
+        // RFC 6350: value MUST be a URI → use data: URI for embedded binary.
         if (!empty($data['mediaType'])) {
-            if (str_starts_with($value, 'http')) {
-                $params[] = 'VALUE=URI';
+            $mime = self::MIME_MAP[strtoupper($data['mediaType'])] ?? $data['mediaType'];
+
+            if (str_starts_with($value, 'http') || str_starts_with($value, 'ftp') || str_starts_with($value, 'data:')) {
+                // Already a URI – optionally advertise media type
+                if (!str_starts_with($value, 'data:')) {
+                    $params[] = 'MEDIATYPE=' . $mime;
+                }
             } else {
-                $params[] = 'ENCODING=b';
-                $params[] = 'TYPE=' . strtoupper($data['mediaType']);
+                // Raw base64 → wrap as data: URI (RFC 6350 compliant)
+                $value = 'data:' . $mime . ';base64,' . $value;
             }
         }
 
-        // LANGUAGE parameter
+        // LANGUAGE parameter (PRONOUNS)
         if (!empty($data['language'])) {
             $params[] = 'LANGUAGE=' . $data['language'];
         }
@@ -714,8 +611,36 @@ class VCard
     }
 
     /**
+     * Fold long lines per RFC 6350 §3.2.
+     * Lines SHOULD be folded at 75 octets (bytes), excluding the CRLF.
+     * Continuation lines begin with a single SPACE.
+     *
+     * @see https://datatracker.ietf.org/doc/html/rfc6350#section-3.2
+     */
+    private function fold(string $line): string
+    {
+        if (strlen($line) <= 75) {
+            return $line;
+        }
+
+        $output = '';
+        // First chunk: 75 bytes
+        $output .= substr($line, 0, 75);
+        $line    = substr($line, 75);
+
+        // Subsequent chunks: 74 bytes (1 byte reserved for leading SPACE)
+        while (strlen($line) > 0) {
+            $output .= "\r\n " . substr($line, 0, 74);
+            $line    = substr($line, 74);
+        }
+
+        return $output;
+    }
+
+    /**
      * Escape special characters per RFC 6350 §3.4.
-     * (commas and backslashes inside structured values must be escaped)
+     *
+     * @see https://datatracker.ietf.org/doc/html/rfc6350#section-3.4
      */
     private function escape(string $value): string
     {

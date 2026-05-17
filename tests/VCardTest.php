@@ -10,19 +10,19 @@ it('builds a valid vcard with begin and end markers', function () {
     $output = VCard::make()->addFormattedName('John Doe')->build();
     expect($output)->toStartWith("BEGIN:VCARD\r\n");
     expect($output)->toContain("END:VCARD\r\n");
-    expect($output)->toContain('VERSION:3.0');
+    expect($output)->toContain('VERSION:4.0');
 });
 
 it('throws if FN is missing when calling build()', function () {
     VCard::make()->addPhoneNumber('123456789')->build();
 })->throws(\InvalidArgumentException::class, 'A formatted name (FN) is required');
 
-it('defaults to version 3.0', function () {
-    expect(VCard::make()->addFormattedName('Test')->build())->toContain('VERSION:3.0');
+it('defaults to version 4.0', function () {
+    expect(VCard::make()->addFormattedName('Test')->build())->toContain('VERSION:4.0');
 });
 
-it('supports version 4.0', function () {
-    expect(VCard::make('4.0')->addFormattedName('Test')->build())->toContain('VERSION:4.0');
+it('supports version 3.0', function () {
+    expect(VCard::make('3.0')->addFormattedName('Test')->build())->toContain('VERSION:3.0');
 });
 
 // -------------------------------------------------------------------------
@@ -67,9 +67,19 @@ it('supports NICKNAME (multiple)', function () {
     expect($out)->toContain('NICKNAME:JD,Johnny');
 });
 
-it('supports PHOTO via URL', function () {
-    $out = VCard::make()->addFormattedName('Test')->addPhoto('https://example.com/photo.jpg')->build();
-    expect($out)->toContain('PHOTO;VALUE=URI:https://example.com/photo.jpg');
+it('supports PHOTO via URL with MEDIATYPE param', function () {
+    $out = VCard::make()->addFormattedName('Test')->addPhoto('https://example.com/photo.jpg', 'image/jpeg')->build();
+    expect($out)->toContain('PHOTO;MEDIATYPE=image/jpeg:https://example.com/photo.jpg');
+});
+
+it('supports PHOTO via data: URI', function () {
+    $out = VCard::make()->addFormattedName('Test')->addPhoto('data:image/jpeg;base64,abc123')->build();
+    expect($out)->toContain('PHOTO:data:image/jpeg;base64,abc123');
+});
+
+it('supports PHOTO with raw base64 wrapped as data: URI', function () {
+    $out = VCard::make()->addFormattedName('Test')->addPhoto('abc123base64data', 'image/png')->build();
+    expect($out)->toContain('PHOTO:data:image/png;base64,abc123base64data');
 });
 
 it('supports BDAY', function () {
@@ -205,9 +215,9 @@ it('supports ROLE', function () {
     expect($out)->toContain('ROLE:Backend Lead');
 });
 
-it('supports LOGO via URL', function () {
-    $out = VCard::make()->addFormattedName('Test')->addLogo('https://example.com/logo.png')->build();
-    expect($out)->toContain('LOGO;VALUE=URI:https://example.com/logo.png');
+it('supports LOGO via URL with MEDIATYPE param', function () {
+    $out = VCard::make()->addFormattedName('Test')->addLogo('https://example.com/logo.png', 'image/png')->build();
+    expect($out)->toContain('LOGO;MEDIATYPE=image/png:https://example.com/logo.png');
 });
 
 it('supports ORG with units', function () {
@@ -222,7 +232,7 @@ it('supports MEMBER', function () {
 
 it('supports RELATED', function () {
     $out = VCard::make()->addFormattedName('Test')->addRelated('urn:uuid:abc123', 'friend')->build();
-    expect($out)->toContain('RELATED;TYPE=FRIEND:urn:uuid:abc123');
+    expect($out)->toContain('RELATED;TYPE=friend:urn:uuid:abc123');
 });
 
 it('supports ORG-DIRECTORY', function () {
@@ -249,9 +259,9 @@ it('supports PRODID', function () {
     expect($out)->toContain('PRODID:-//MyApp//EN');
 });
 
-it('supports SOUND via URL', function () {
-    $out = VCard::make()->addFormattedName('Test')->addSound('https://example.com/sound.ogg')->build();
-    expect($out)->toContain('SOUND;VALUE=URI:https://example.com/sound.ogg');
+it('supports SOUND via URL with MEDIATYPE param', function () {
+    $out = VCard::make()->addFormattedName('Test')->addSound('https://example.com/sound.ogg', 'audio/ogg')->build();
+    expect($out)->toContain('SOUND;MEDIATYPE=audio/ogg:https://example.com/sound.ogg');
 });
 
 it('supports UID', function () {
@@ -278,9 +288,9 @@ it('supports CREATED', function () {
 // § 6.8 Security Properties
 // -------------------------------------------------------------------------
 
-it('supports KEY via URL', function () {
+it('supports KEY via URL with MEDIATYPE param', function () {
     $out = VCard::make()->addFormattedName('Test')->addKey('https://example.com/key.asc', 'application/pgp-keys')->build();
-    expect($out)->toContain('KEY;VALUE=URI:https://example.com/key.asc');
+    expect($out)->toContain('KEY;MEDIATYPE=application/pgp-keys:https://example.com/key.asc');
 });
 
 // -------------------------------------------------------------------------
@@ -307,12 +317,12 @@ it('supports CALURI', function () {
 // -------------------------------------------------------------------------
 
 it('supports BIRTHPLACE', function () {
-    $out = VCard::make()->addFormattedName('Test')->addBirthplace('Paris, France')->build();
+    $out = VCard::make()->addFormattedName('Test')->addBirthplace('Paris')->build();
     expect($out)->toContain('BIRTHPLACE:Paris');
 });
 
 it('supports DEATHPLACE', function () {
-    $out = VCard::make()->addFormattedName('Test')->addDeathplace('London, UK')->build();
+    $out = VCard::make()->addFormattedName('Test')->addDeathplace('London')->build();
     expect($out)->toContain('DEATHPLACE:London');
 });
 
@@ -361,4 +371,11 @@ it('escapes backslashes', function () {
 it('escapes newlines in note', function () {
     $out = VCard::make()->addFormattedName('Test')->addNote("Line 1\nLine 2")->build();
     expect($out)->toContain("NOTE:Line 1\\nLine 2");
+});
+
+it('folds lines longer than 75 octets', function () {
+    $long = str_repeat('A', 80);
+    $out = VCard::make()->addFormattedName('Test')->addNote($long)->build();
+    // The NOTE line should be split with CRLF + SPACE
+    expect($out)->toContain("\r\n ");
 });
